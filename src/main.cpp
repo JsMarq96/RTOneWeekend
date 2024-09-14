@@ -29,35 +29,30 @@ struct sCameraData {
     glm::dvec3 pixel_delta_u = viewport_u / glm::dvec3(image_data.width);
     glm::dvec3 pixel_delta_v = viewport_v / glm::dvec3(image_data.height);
 
-    glm::dvec3 pixel00_pos = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);\
+    glm::dvec3 pixel00_pos = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 } camera;
-
 
 void write_ppm(const double* raw_data, const uint32_t width, const uint32_t height, const char* file_name = nullptr);
 
 int main() {
-    double *data = new double[image_data.width * image_data.height * 3];
+    glm::dvec3 *data = new glm::dvec3[image_data.width * image_data.height];
 
     spdlog::info("Computing render");
 
     for (int j = 0; j < image_data.height; j++) {
         for (int i = 0; i < image_data.width; i++) {
-            glm::dvec3 pixel_center = camera.pixel00_pos + (camera.pixel_delta_u * glm::dvec3(i)) + (glm::dvec3(j) * camera.pixel_delta_v);
+            glm::dvec3 pixel_center = camera.pixel00_pos + (glm::dvec3(i) * camera.pixel_delta_u) + (glm::dvec3(j) * camera.pixel_delta_v);
             glm::dvec3 ray_direction = pixel_center - camera.center;
 
-            glm::dvec3 pixel_color = get_ray_color({.origin = pixel_center, .dir = ray_direction});
+            const int32_t idx = (i + image_data.width *j);
 
-            const int32_t idx = (i + image_data.width *j) * 3;
-
-            data[idx] = pixel_color.x;
-            data[idx+1] = pixel_color.y;
-            data[idx+2] = pixel_color.z;
+            data[idx] = get_ray_color({.origin = pixel_center, .dir = ray_direction});;
         }
     }
 
     spdlog::info("Saving image");
 
-    write_ppm(data, image_data.width, image_data.height);
+    write_ppm((double*) data, image_data.width, image_data.height);
     
     delete[] data;
     return 0u;
@@ -78,7 +73,11 @@ inline void write_ppm(  const double* raw_data,
     for(uint32_t j = 0u; j < height; j++) {
         for(uint32_t i = 0u; i < width; i++) {
             const uint32_t idx = (i + width *j) * 3u;
-            fprintf(file, "%d %d %d\n", uint32_t(255.999 * raw_data[idx]), uint32_t(255.999 * raw_data[idx+1u]), uint32_t(255.999 * raw_data[idx+2u]));
+            fprintf(file, 
+                    "%d %d %d\n", 
+                    uint32_t(255.999 * raw_data[idx]), 
+                    uint32_t(255.999 * raw_data[idx+1u]), 
+                    uint32_t(255.999 * raw_data[idx+2u]));
         }
     }
 

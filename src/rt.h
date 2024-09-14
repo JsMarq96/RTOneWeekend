@@ -12,7 +12,12 @@ struct sRay {
 };
 
 glm::dvec3 get_ray_color(const sRay& r) {
+    glm::dvec3 resulting_color;
+
+    // Sky color
     const glm::vec3 dir = glm::normalize(r.dir); 
     double a = 0.5*(dir.y + 1.0);
-    return (1.0-a)*glm::dvec3{1.0, 1.0, 1.0} + a*glm::dvec3{0.5, 0.7, 1.0};
+    resulting_color = (1.0-a)*glm::dvec3{1.0, 1.0, 1.0} + a*glm::dvec3{0.5, 0.7, 1.0};
+
+    return resulting_color;
 }
