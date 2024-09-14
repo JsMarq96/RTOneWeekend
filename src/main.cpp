@@ -6,6 +6,7 @@
 #include "rt.h"
 
 #define DEFAULT_OUTPUT_IMAGE "rt_one_week_res.ppm"
+
 struct sResultImageData {
     const double aspect_ratio = (16.0 / 9.0);
     const uint32_t width = 400;
@@ -28,32 +29,11 @@ struct sCameraData {
     glm::dvec3 pixel_delta_u = viewport_u / glm::dvec3(image_data.width);
     glm::dvec3 pixel_delta_v = viewport_v / glm::dvec3(image_data.height);
 
-    glm::dvec3 pixel00_pos = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
-
+    glm::dvec3 pixel00_pos = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);\
 } camera;
 
 
-const char *ppm_sample = "P3\n 4 4\n 15\n0  0  0    0  0  0    0  0  0   15  0 15\n0  0  0    0 15  7    0  0  0    0  0  0\n0  0  0    0  0  0    0 15  7    0  0  0\n15  0 15    0  0  0    0  0  0    0  0  0";
-
-inline void write_ppm(  const double* raw_data, 
-                        const uint32_t width,
-                        const uint32_t height, 
-                        const char* file_name = nullptr) {
-    FILE* file = fopen((file_name) ? file_name : DEFAULT_OUTPUT_IMAGE, "w");
-
-    // Write header
-    fprintf(file, "P3\n%d %d\n255\n", width, height);
-
-    // Load the img data
-    for(uint32_t j = 0u; j < height; j++) {
-        for(uint32_t i = 0u; i < width; i++) {
-            const uint32_t idx = (i + width *j) * 3u;
-            fprintf(file, "%d %d %d\n", uint32_t(255.999 * raw_data[idx]), uint32_t(255.999 * raw_data[idx+1u]), uint32_t(255.999 * raw_data[idx+2u]));
-        }
-    }
-
-    fclose(file);
-}
+void write_ppm(const double* raw_data, const uint32_t width, const uint32_t height, const char* file_name = nullptr);
 
 int main() {
     double *data = new double[image_data.width * image_data.height * 3];
@@ -81,4 +61,26 @@ int main() {
     
     delete[] data;
     return 0u;
+}
+
+// HELPER FUNCTIONS ======================
+
+inline void write_ppm(  const double* raw_data, 
+                        const uint32_t width,
+                        const uint32_t height, 
+                        const char* file_name) {
+    FILE* file = fopen((file_name) ? file_name : DEFAULT_OUTPUT_IMAGE, "w");
+
+    // Write header
+    fprintf(file, "P3\n%d %d\n255\n", width, height);
+
+    // Load the img data
+    for(uint32_t j = 0u; j < height; j++) {
+        for(uint32_t i = 0u; i < width; i++) {
+            const uint32_t idx = (i + width *j) * 3u;
+            fprintf(file, "%d %d %d\n", uint32_t(255.999 * raw_data[idx]), uint32_t(255.999 * raw_data[idx+1u]), uint32_t(255.999 * raw_data[idx+2u]));
+        }
+    }
+
+    fclose(file);
 }
