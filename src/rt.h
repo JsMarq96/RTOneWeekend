@@ -6,6 +6,8 @@
 
 #include <cfloat>
 
+#define HITTABLE_WORLD_SIZE 200u
+
 struct sRay {
     glm::dvec3 origin;
     glm::dvec3 dir;
@@ -32,9 +34,26 @@ struct sInterval {
     }
 };
 
+struct sHitRecord {
+    glm::dvec3 p;
+    glm::dvec3 normal;
+    double t;
+    bool front_face;
+
+    void set_normal(const sRay &ray, const glm::dvec3 &outward_normal) {
+        front_face = glm::dot(ray.dir, outward_normal) < 0.0;
+        normal = (front_face) ? outward_normal : -outward_normal;
+    }
+};
+
 namespace intersections {
+    enum eHitTypes : uint8_t {
+        SPHERE,
+        HITTYPES_COUNT
+    };
+
     // TODO: comment
-    double ray_sphere(const glm::dvec3 &sphere_center, const double sphere_radius, const sRay &ray) {
+    double ray_sphere(const sRay &ray, const glm::dvec3 &sphere_center, const double sphere_radius) {
         const glm::dvec3 rorigin_scenter = sphere_center - ray.origin;
         const double a = glm::length2(ray.dir);
         const double h = glm::dot(ray.dir, rorigin_scenter);
@@ -48,42 +67,17 @@ namespace intersections {
 
         return (h - glm::sqrt(discriminant)) / a;
     };
-};
 
-struct sHitRecord {
-    glm::dvec3 p;
-    glm::dvec3 normal;
-    double t;
-    bool front_face;
-
-    void set_normal(const sRay &ray, const glm::dvec3 &outward_normal) {
-        front_face = glm::dot(ray.dir, outward_normal) < 0.0;
-        normal = (front_face) ? outward_normal : -outward_normal;
-    }
-};
-
-class Hitable {
-public:
-    virtual ~Hitable() = default;
-
-    virtual bool hit(const sRay& r, const sInterval &t_int, sHitRecord& result) const = 0;
-};
-
-class Sphere : public Hitable {
-public:
-    Sphere(const glm::dvec3 &center, const double radius) : center(center), radius(glm::max(0.0, radius)) {}
-
-
-    bool hit(const sRay& ray, const sInterval &t_int, sHitRecord& result) const override {
-        const glm::dvec3 rorigin_scenter = center - ray.origin;
+    double ray_sphere_closest(const sRay &ray, const glm::dvec3 &sphere_center, const double sphere_radius, const sInterval &t_int, sHitRecord &result) {
+        const glm::dvec3 rorigin_scenter = sphere_center - ray.origin;
         const double a = glm::length2(ray.dir);
         const double h = glm::dot(ray.dir, rorigin_scenter);
-        const double c = glm::length2(rorigin_scenter) - radius * radius;
+        const double c = glm::length2(rorigin_scenter) - sphere_radius * sphere_radius;
 
         const double discriminant = h * h - a * c;
 
         if (discriminant < 0) {
-            return false;
+            return -1.0;
         }
 
         const double sqrt_dis = glm::sqrt(discriminant);
@@ -94,62 +88,76 @@ public:
             root = (h + sqrt_dis) / a;
 
             if (!t_int.surrounds(root)) {
-                return false;
+                return -1.0;
             }
         }
 
         result.t = root;
         result.p = ray.at(root);
-        result.set_normal(ray, (result.p - center) / radius);
+        result.set_normal(ray, (result.p - sphere_center) / sphere_radius);
 
-        return true;
-    }
-private:
-    glm::dvec3 center;
-    double radius;
+        return root;
+    };
 };
 
+struct sHittableWorld {
+    uint32_t    elem_count  = 0u;
 
-class HittableList : public Hitable {
-    public:
-    uint32_t hitable_count = 0u;
-    const Hitable* hitable_list[200];
+    intersections::eHitTypes    elem_types  [HITTABLE_WORLD_SIZE] = {};
+    glm::dvec3                  position    [HITTABLE_WORLD_SIZE] = {};
+    double                      radius      [HITTABLE_WORLD_SIZE] = {};
 
-    void add(const Hitable* obj) {
-        hitable_list[hitable_count++] = obj;
+    inline uint32_t add_sphere(const glm::dvec3 &center, const double r) {
+        elem_types[elem_count] = intersections::SPHERE;
+        position[elem_count] = center;
+        radius[elem_count] = r;
+
+        return elem_count++;
     }
 
-    bool hit(const sRay& ray, const sInterval &t_int, sHitRecord& result) const override {
-        sHitRecord temp_rec;
+    bool ray_hit(const sRay &ray, const sInterval &t_int, sHitRecord &result, uint32_t *idx) const {\
+        sHitRecord temp_rec = {};
 
         bool hit_anything = false;
         double closest_so_far = t_int.max;
 
-        for(uint32_t i = 0u; i < hitable_count; i++) {
-            if (hitable_list[i]->hit(ray, {.min = t_int.min, .max = closest_so_far}, temp_rec)) {
+        for(uint32_t i = 0u; i < elem_count; i++) {
+            double root = 0.0;
+
+            // Perform intersection tests
+            switch(elem_types[i]) {
+                case intersections::SPHERE:
+                    root = intersections::ray_sphere_closest(ray, position[i], radius[i], {.min = t_int.min, .max = closest_so_far}, temp_rec);
+                    break;
+                default:
+                break;
+            }
+
+            if (root > 0.0) {
                 hit_anything = true;
                 closest_so_far = temp_rec.t;
                 result = temp_rec;
+                *idx = i;
             }
         }
 
         return hit_anything;
     }
-};
 
+    glm::dvec3 get_ray_color(const sRay &ray) const {
+        glm::dvec3 resulting_color;
 
-glm::dvec3 get_ray_color(const sRay& r, const HittableList& world) {
-    glm::dvec3 resulting_color;
+        // Sky color
+        const glm::vec3 dir = glm::normalize(ray.dir); 
+        double a = 0.5*(dir.y + 1.0);
+        resulting_color = (1.0 - a) * glm::dvec3{1.0, 1.0, 1.0} + a * glm::dvec3{0.5, 0.7, 1.0};
 
-    // Sky color
-    const glm::vec3 dir = glm::normalize(r.dir); 
-    double a = 0.5*(dir.y + 1.0);
-    resulting_color = (1.0-a)*glm::dvec3{1.0, 1.0, 1.0} + a*glm::dvec3{0.5, 0.7, 1.0};
+        sHitRecord record;
+        uint32_t idx;
+        if (ray_hit(ray,{.min = 0.0, .max = DBL_MAX}, record, &idx)) {
+            resulting_color = 0.5 * (record.normal + glm::dvec3(1.0)); 
+        }
 
-    sHitRecord record;
-    if (world.hit(r, {.min = 0.0, .max = DBL_MAX}, record)) {
-        resulting_color = 0.5 * (record.normal + glm::dvec3(1.0)); 
+        return resulting_color;
     }
-
-    return resulting_color;
-}
+};
