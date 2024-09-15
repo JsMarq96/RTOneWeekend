@@ -53,7 +53,9 @@ namespace intersections {
     };
 
     // TODO: comment
-    double ray_sphere(const sRay &ray, const glm::dvec3 &sphere_center, const double sphere_radius) {
+    double ray_sphere(  const sRay &ray, 
+                        const glm::dvec3 &sphere_center, 
+                        const double sphere_radius) {
         const glm::dvec3 rorigin_scenter = sphere_center - ray.origin;
         const double a = glm::length2(ray.dir);
         const double h = glm::dot(ray.dir, rorigin_scenter);
@@ -68,7 +70,11 @@ namespace intersections {
         return (h - glm::sqrt(discriminant)) / a;
     };
 
-    double ray_sphere_closest(const sRay &ray, const glm::dvec3 &sphere_center, const double sphere_radius, const sInterval &t_int, sHitRecord &result) {
+    double ray_sphere_closest(  const sRay &ray, 
+                                const glm::dvec3 &sphere_center, 
+                                const double sphere_radius, 
+                                const sInterval &t_int, 
+                                sHitRecord &result) {
         const glm::dvec3 rorigin_scenter = sphere_center - ray.origin;
         const double a = glm::length2(ray.dir);
         const double h = glm::dot(ray.dir, rorigin_scenter);
@@ -107,7 +113,8 @@ struct sHittableWorld {
     glm::dvec3                  position    [HITTABLE_WORLD_SIZE] = {};
     double                      radius      [HITTABLE_WORLD_SIZE] = {};
 
-    inline uint32_t add_sphere(const glm::dvec3 &center, const double r) {
+    inline uint32_t add_sphere( const glm::dvec3 &center, 
+                                const double r) {
         elem_types[elem_count] = intersections::SPHERE;
         position[elem_count] = center;
         radius[elem_count] = r;
@@ -115,7 +122,10 @@ struct sHittableWorld {
         return elem_count++;
     }
 
-    bool ray_hit(const sRay &ray, const sInterval &t_int, sHitRecord &result, uint32_t *idx) const {\
+    bool ray_hit(   const sRay &ray, 
+                    const sInterval &t_int, 
+                    sHitRecord &result, 
+                    uint32_t *idx   ) const {
         sHitRecord temp_rec = {};
 
         bool hit_anything = false;
@@ -127,7 +137,11 @@ struct sHittableWorld {
             // Perform intersection tests
             switch(elem_types[i]) {
                 case intersections::SPHERE:
-                    root = intersections::ray_sphere_closest(ray, position[i], radius[i], {.min = t_int.min, .max = closest_so_far}, temp_rec);
+                    root = intersections::ray_sphere_closest(   ray, 
+                                                                position[i], 
+                                                                radius[i], 
+                                                                {.min = t_int.min, .max = closest_so_far}, 
+                                                                temp_rec    );
                     break;
                 default:
                 break;
