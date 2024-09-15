@@ -37,6 +37,11 @@ void write_ppm(const double* raw_data, const uint32_t width, const uint32_t heig
 int main() {
     glm::dvec3 *data = new glm::dvec3[image_data.width * image_data.height];
 
+    HittableList world;
+
+    world.add(new Sphere({0.0, 0.0, -1.0}, 0.5));
+    world.add(new Sphere({0.0, -100.5, -1.0}, 100.0));
+
     spdlog::info("Computing render");
 
     for (int j = 0; j < image_data.height; j++) {
@@ -46,7 +51,7 @@ int main() {
 
             const int32_t idx = (i + image_data.width *j);
 
-            data[idx] = get_ray_color({.origin = pixel_center, .dir = ray_direction});;
+            data[idx] = get_ray_color({.origin = camera.center, .dir = ray_direction}, world);
         }
     }
 
