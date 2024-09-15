@@ -15,6 +15,23 @@ struct sRay {
     }
 };
 
+struct sInterval {
+    double min = DBL_MAX;
+    double max = -DBL_MAX;
+
+    inline bool contains(const double v) const {
+        return min <= v && v <= max;
+    }
+
+    inline bool surrounds(const double v) const {
+        return min < v && v < max;
+    }
+
+    inline double size() const {
+        return max - min;
+    }
+};
+
 namespace intersections {
     // TODO: comment
     double ray_sphere(const glm::dvec3 &sphere_center, const double sphere_radius, const sRay &ray) {
@@ -49,7 +66,7 @@ class Hitable {
 public:
     virtual ~Hitable() = default;
 
-    virtual bool hit(const sRay& r, const double t_min, const double t_max, sHitRecord& result) const = 0;
+    virtual bool hit(const sRay& r, const sInterval &t_int, sHitRecord& result) const = 0;
 };
 
 class Sphere : public Hitable {
@@ -57,7 +74,7 @@ public:
     Sphere(const glm::dvec3 &center, const double radius) : center(center), radius(glm::max(0.0, radius)) {}
 
 
-    bool hit(const sRay& ray, const double t_min, const double t_max, sHitRecord& result) const override {
+    bool hit(const sRay& ray, const sInterval &t_int, sHitRecord& result) const override {
         const glm::dvec3 rorigin_scenter = center - ray.origin;
         const double a = glm::length2(ray.dir);
         const double h = glm::dot(ray.dir, rorigin_scenter);
@@ -73,10 +90,10 @@ public:
         double root = (h - sqrt_dis) / a;
 
         // Find the closest (and valid) root
-        if (root <= t_min || root >= t_max) {
+        if (!t_int.surrounds(root)) {
             root = (h + sqrt_dis) / a;
 
-            if (root <= t_min || root >= t_max) {
+            if (!t_int.surrounds(root)) {
                 return false;
             }
         }
@@ -102,14 +119,14 @@ class HittableList : public Hitable {
         hitable_list[hitable_count++] = obj;
     }
 
-    bool hit(const sRay& ray, const double t_min, const double t_max, sHitRecord& result) const override {
+    bool hit(const sRay& ray, const sInterval &t_int, sHitRecord& result) const override {
         sHitRecord temp_rec;
 
         bool hit_anything = false;
-        double closest_so_far = t_max;
+        double closest_so_far = t_int.max;
 
         for(uint32_t i = 0u; i < hitable_count; i++) {
-            if (hitable_list[i]->hit(ray, t_min, closest_so_far, temp_rec)) {
+            if (hitable_list[i]->hit(ray, {.min = t_int.min, .max = closest_so_far}, temp_rec)) {
                 hit_anything = true;
                 closest_so_far = temp_rec.t;
                 result = temp_rec;
@@ -130,7 +147,7 @@ glm::dvec3 get_ray_color(const sRay& r, const HittableList& world) {
     resulting_color = (1.0-a)*glm::dvec3{1.0, 1.0, 1.0} + a*glm::dvec3{0.5, 0.7, 1.0};
 
     sHitRecord record;
-    if (world.hit(r, 0.0, DBL_MAX, record)) {
+    if (world.hit(r, {.min = 0.0, .max = DBL_MAX}, record)) {
         resulting_color = 0.5 * (record.normal + glm::dvec3(1.0)); 
     }
 
