@@ -3,8 +3,10 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
-
 #include <cfloat>
+
+#include "camera.h"
+#include "utils.h"
 
 struct sRay {
     glm::dvec3 origin;
@@ -18,6 +20,12 @@ struct sRay {
 struct sInterval {
     double min = DBL_MAX;
     double max = -DBL_MAX;
+
+    inline double clamp(const double v) const {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
+    }
 
     inline bool contains(const double v) const {
         return min <= v && v <= max;
@@ -152,4 +160,20 @@ glm::dvec3 get_ray_color(const sRay& r, const HittableList& world) {
     }
 
     return resulting_color;
+}
+
+glm::dvec3 render_pixel(const uint32_t i, const uint32_t j, const sCamera& camera, const HittableList& world, const uint8_t sample_count = 10u) {
+    glm::dvec3 ray_color = {0.0, 0.0, 0.0};
+
+    for(uint8_t s = 0u; s < sample_count; s++) {
+        // Supersampling pixel jitter
+        const glm::dvec2 square_samples = (sample_count > 1) ? glm::linearRand(glm::dvec2{0.0, 0.0}, glm::dvec2{0.5, 0.5}) : glm::dvec2{0.0, 0.0};
+        
+        const glm::dvec3 pixel_center = camera.pixel00_pos + ((glm::dvec3(i) + square_samples.x) * camera.pixel_delta_u) + ((glm::dvec3(j) + square_samples.y) * camera.pixel_delta_v);
+        const glm::dvec3 ray_direction = pixel_center - camera.center;
+
+        ray_color += get_ray_color({.origin = camera.center, .dir = ray_direction}, world);
+    }
+
+    return ray_color / ((double) sample_count);
 }
