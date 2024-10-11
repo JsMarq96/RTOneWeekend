@@ -6,6 +6,9 @@
 
 #include <cfloat>
 
+#include "camera.h"
+#include "utils.h"
+
 #define HITTABLE_WORLD_SIZE 200u
 
 struct sRay {
@@ -20,6 +23,12 @@ struct sRay {
 struct sInterval {
     double min = DBL_MAX;
     double max = -DBL_MAX;
+
+    inline double clamp(const double v) const {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
+    }
 
     inline bool contains(const double v) const {
         return min <= v && v <= max;
@@ -43,6 +52,7 @@ struct sHitRecord {
     void set_normal(const sRay &ray, const glm::dvec3 &outward_normal) {
         front_face = glm::dot(ray.dir, outward_normal) < 0.0;
         normal = (front_face) ? outward_normal : -outward_normal;
+        normal = glm::normalize(normal);
     }
 };
 
@@ -70,7 +80,7 @@ namespace intersections {
         return (h - glm::sqrt(discriminant)) / a;
     };
 
-    double ray_sphere_closest(  const sRay &ray, 
+    bool ray_sphere_closest(  const sRay &ray, 
                                 const glm::dvec3 &sphere_center, 
                                 const double sphere_radius, 
                                 const sInterval &t_int, 
@@ -83,7 +93,7 @@ namespace intersections {
         const double discriminant = h * h - a * c;
 
         if (discriminant < 0) {
-            return -1.0;
+            return false;
         }
 
         const double sqrt_dis = glm::sqrt(discriminant);
@@ -94,7 +104,7 @@ namespace intersections {
             root = (h + sqrt_dis) / a;
 
             if (!t_int.surrounds(root)) {
-                return -1.0;
+                return false;
             }
         }
 
@@ -102,7 +112,7 @@ namespace intersections {
         result.p = ray.at(root);
         result.set_normal(ray, (result.p - sphere_center) / sphere_radius);
 
-        return root;
+        return true;
     };
 };
 
@@ -112,6 +122,10 @@ struct sHittableWorld {
     intersections::eHitTypes    elem_types  [HITTABLE_WORLD_SIZE] = {};
     glm::dvec3                  position    [HITTABLE_WORLD_SIZE] = {};
     double                      radius      [HITTABLE_WORLD_SIZE] = {};
+
+    // Supersampling buffers
+    glm::dvec3 sample_color_buffer[255] = {};
+    sRay sample_ray_buffer[255] = {};
 
     inline uint32_t add_sphere( const glm::dvec3 &center, 
                                 const double r) {
@@ -132,12 +146,12 @@ struct sHittableWorld {
         double closest_so_far = t_int.max;
 
         for(uint32_t i = 0u; i < elem_count; i++) {
-            double root = 0.0;
+            bool has_hit = false;
 
             // Perform intersection tests
             switch(elem_types[i]) {
                 case intersections::SPHERE:
-                    root = intersections::ray_sphere_closest(   ray, 
+                    has_hit = intersections::ray_sphere_closest(   ray, 
                                                                 position[i], 
                                                                 radius[i], 
                                                                 {.min = t_int.min, .max = closest_so_far}, 
@@ -147,7 +161,7 @@ struct sHittableWorld {
                 break;
             }
 
-            if (root > 0.0) {
+            if (has_hit) {
                 hit_anything = true;
                 closest_so_far = temp_rec.t;
                 result = temp_rec;
@@ -173,5 +187,34 @@ struct sHittableWorld {
         }
 
         return resulting_color;
+    }
+
+    glm::dvec3 get_pixel_color( const uint32_t i, 
+                                const uint32_t j, 
+                                const sCamera &camera, 
+                                const uint8_t sample_count = 1u) {
+        glm::dvec3 result_color = {0.0, 0.0, 0.0};
+
+        assert(sample_count >= 1u && "The sample count needs to be at least 1");
+
+        // Generate all the sample position
+        for(uint8_t s = 0u; s < sample_count; s++) {
+            const glm::dvec2 square_samples = (sample_count > 1) ? glm::linearRand(glm::dvec2{0.0, 0.0}, glm::dvec2{0.5, 0.5}) : glm::dvec2{0.0, 0.0};
+            const glm::dvec3 r_origin = camera.pixel00_pos + ((glm::dvec3(i) + square_samples.x) * camera.pixel_delta_u) + ((glm::dvec3(j) + square_samples.y) * camera.pixel_delta_v);
+
+            sample_ray_buffer[s] = {.origin = camera.center, .dir = glm::normalize(r_origin - camera.center)};
+        }
+
+        // Launch rays
+        for(uint8_t s = 0u; s < sample_count; s++) {
+            sample_color_buffer[s] = get_ray_color(sample_ray_buffer[s]);
+        }
+
+        // Compute the supersampling
+        for(uint8_t s = 0u; s < sample_count; s++) {
+            result_color += sample_color_buffer[s];
+        }
+
+        return result_color / ((double) sample_count);
     }
 };
