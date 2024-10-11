@@ -116,22 +116,27 @@ namespace intersections {
     };
 };
 
+struct sHittableObj {
+    glm::dvec3 position;
+    double radius;
+};
+
 struct sHittableWorld {
     uint32_t    elem_count  = 0u;
 
     intersections::eHitTypes    elem_types  [HITTABLE_WORLD_SIZE] = {};
+    sHittableObj objs[HITTABLE_WORLD_SIZE] = { };
+
     glm::dvec3                  position    [HITTABLE_WORLD_SIZE] = {};
     double                      radius      [HITTABLE_WORLD_SIZE] = {};
-
-    // Supersampling buffers
-    glm::dvec3 sample_color_buffer[255] = {};
-    sRay sample_ray_buffer[255] = {};
 
     inline uint32_t add_sphere( const glm::dvec3 &center, 
                                 const double r) {
         elem_types[elem_count] = intersections::SPHERE;
         position[elem_count] = center;
         radius[elem_count] = r;
+
+        objs[elem_count] = {.position = center, .radius = r};
 
         return elem_count++;
     }
@@ -152,8 +157,8 @@ struct sHittableWorld {
             switch(elem_types[i]) {
                 case intersections::SPHERE:
                     has_hit = intersections::ray_sphere_closest(   ray, 
-                                                                position[i], 
-                                                                radius[i], 
+                                                                objs[i].position, 
+                                                                objs[i].radius, 
                                                                 {.min = t_int.min, .max = closest_so_far}, 
                                                                 temp_rec    );
                     break;
@@ -192,7 +197,7 @@ struct sHittableWorld {
     glm::dvec3 get_pixel_color( const uint32_t i, 
                                 const uint32_t j, 
                                 const sCamera &camera, 
-                                const uint8_t sample_count = 1u) {
+                                const uint8_t sample_count = 1u) const {
         glm::dvec3 result_color = {0.0, 0.0, 0.0};
 
         assert(sample_count >= 1u && "The sample count needs to be at least 1");
@@ -201,18 +206,7 @@ struct sHittableWorld {
         for(uint8_t s = 0u; s < sample_count; s++) {
             const glm::dvec2 square_samples = (sample_count > 1) ? glm::linearRand(glm::dvec2{0.0, 0.0}, glm::dvec2{0.5, 0.5}) : glm::dvec2{0.0, 0.0};
             const glm::dvec3 r_origin = camera.pixel00_pos + ((glm::dvec3(i) + square_samples.x) * camera.pixel_delta_u) + ((glm::dvec3(j) + square_samples.y) * camera.pixel_delta_v);
-
-            sample_ray_buffer[s] = {.origin = camera.center, .dir = glm::normalize(r_origin - camera.center)};
-        }
-
-        // Launch rays
-        for(uint8_t s = 0u; s < sample_count; s++) {
-            sample_color_buffer[s] = get_ray_color(sample_ray_buffer[s]);
-        }
-
-        // Compute the supersampling
-        for(uint8_t s = 0u; s < sample_count; s++) {
-            result_color += sample_color_buffer[s];
+            result_color += get_ray_color({.origin = camera.center, .dir = glm::normalize(r_origin - camera.center)});
         }
 
         return result_color / ((double) sample_count);

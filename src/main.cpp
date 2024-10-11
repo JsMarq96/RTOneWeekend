@@ -29,7 +29,7 @@ int main() {
     for (uint32_t j = 0; j < image_data.height; j++) {
         for (uint32_t i = 0; i < image_data.width; i++) {
             const int32_t idx = (i + image_data.width *j);
-            data[idx] = world.get_pixel_color(i, j, camera, 100u);
+            data[idx] = world.get_pixel_color(i, j, camera, 10u);
         }
     }
 
