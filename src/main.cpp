@@ -22,15 +22,19 @@ int main() {
     world.add(new Sphere({0.0, 0.0, -1.0}, 0.5));
     world.add(new Sphere({0.0, -100.5, -1.0}, 100.0));
 
-    spdlog::info("Computing render");
+    spdlog::info("Computing render, starting timer");
+
+    const uint64_t start_time = get_timestamp_microsecs();
 
     for (int j = 0; j < image_data.height; j++) {
         for (int i = 0; i < image_data.width; i++) {
             const int32_t idx = (i + image_data.width *j);
-            data[idx] = render_pixel(i, j, camera, world);
+            data[idx] = render_pixel(i, j, camera, world, 100u);
         }
     }
+    const uint64_t end_time = get_timestamp_microsecs();
 
+    spdlog::info("Finished render: resulting time {} microseconds", end_time - start_time);
     spdlog::info("Saving image");
 
     write_ppm((double*) data, image_data.width, image_data.height);
