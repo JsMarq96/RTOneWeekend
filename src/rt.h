@@ -167,7 +167,7 @@ glm::dvec3 render_pixel(const uint32_t i, const uint32_t j, const sCamera& camer
 
     for(uint8_t s = 0u; s < sample_count; s++) {
         // Supersampling pixel jitter
-        const glm::dvec2 square_samples = (sample_count > 1) ? glm::linearRand(glm::dvec2{0.0, 0.0}, glm::dvec2{0.5, 0.5}) : glm::dvec2{0.0, 0.0};
+        const glm::dvec2 square_samples = (sample_count > 1) ? glm::linearRand(glm::dvec2{0.0, 0.0}, glm::dvec2{1.0, 1.0}) : glm::dvec2{0.0, 0.0};
         
         const glm::dvec3 pixel_center = camera.pixel00_pos + ((glm::dvec3(i) + square_samples.x) * camera.pixel_delta_u) + ((glm::dvec3(j) + square_samples.y) * camera.pixel_delta_v);
         const glm::dvec3 ray_direction = pixel_center - camera.center;

@@ -29,7 +29,7 @@ int main() {
     for (int j = 0; j < image_data.height; j++) {
         for (int i = 0; i < image_data.width; i++) {
             const int32_t idx = (i + image_data.width *j);
-            data[idx] = render_pixel(i, j, camera, world, 100u);
+            data[idx] = render_pixel(i, j, camera, world, 50u);
         }
     }
     const uint64_t end_time = get_timestamp_microsecs();
