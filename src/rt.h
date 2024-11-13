@@ -204,7 +204,7 @@ struct sHittableWorld {
 
         // Generate all the sample position
         for(uint8_t s = 0u; s < sample_count; s++) {
-            const glm::dvec2 square_samples = (sample_count > 1) ? glm::linearRand(glm::dvec2{0.0, 0.0}, glm::dvec2{0.5, 0.5}) : glm::dvec2{0.0, 0.0};
+            const glm::dvec2 square_samples = (sample_count > 1) ? glm::linearRand(glm::dvec2{0.0, 0.0}, glm::dvec2{1.0, 1.0}) : glm::dvec2{0.0, 0.0};
             const glm::dvec3 r_origin = camera.pixel00_pos + ((glm::dvec3(i) + square_samples.x) * camera.pixel_delta_u) + ((glm::dvec3(j) + square_samples.y) * camera.pixel_delta_v);
             result_color += get_ray_color({.origin = camera.center, .dir = glm::normalize(r_origin - camera.center)});
         }
